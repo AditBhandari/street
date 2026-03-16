@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>street</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background: #0a0a0a; color: #f0ede8;
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  .phone {
+    width: 100%; max-width: 390px; height: 100dvh; max-height: 844px;
+    background: #111; display: flex; flex-direction: column;
+    position: relative; overflow: hidden;
+  }
+  .wordmark { font-size: 22px; color: #f0ede8; font-weight: 700; letter-spacing: -1px; }
+  .section-label { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #3a3a3a; margin: 14px 8px 10px; font-weight: 500; }
+  .header-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px 4px; flex-shrink: 0; }
+  .scroll { flex: 1; overflow-y: auto; padding: 0 16px 16px; scrollbar-width: none; }
+  .scroll::-webkit-scrollbar { display: none; }
+  .nav-bar { display: flex; padding: 10px 16px 24px; border-top: 1px solid #1a1a1a; flex-shrink: 0; background: #111; position: relative; z-index: 10; }
+  .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; padding: 5px 0; border-radius: 10px; transition: all 0.15s; }
+  .nav-icon { font-size: 16px; line-height: 1; }
+  .nav-label { font-size: 9px; color: #444; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; }
+  .nav-item.active .nav-label { color: #f0ede8; }
+  .screen { display: none; flex-direction: column; flex: 1; overflow: hidden; position: relative; }
+  .screen.active { display: flex; }
+  .pill-count { display: inline-flex; gap: 5px; align-items: center; background: #1a1814; border: 1px solid #2a2520; border-radius: 20px; padding: 5px 10px; font-size: 11px; color: #c8b8a2; font-weight: 500; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #c8b8a2; display: inline-block; }
+  .dot.used { background: #2a2520; }
+  .people-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .person-card { background: #161616; border: 1.5px solid #1e1e1e; border-radius: 18px; padding: 16px 14px; cursor: pointer; transition: all 0.18s ease; position: relative; min-height: 96px; display: flex; flex-direction: column; gap: 8px; }
+  .person-card:active { transform: scale(0.97); }
+  .person-card.selected { border-color: #c8b8a2; background: #1a1814; }
+  .person-card.dimmed { opacity: 0.3; pointer-events: none; }
+  .person-card.shuffling { animation: sa 0.35s ease forwards; }
+  @keyframes sa { 0%{opacity:1;transform:scale(1)} 40%{opacity:0;transform:scale(0.92) translateY(6px)} 60%{opacity:0} 100%{opacity:1;transform:scale(1)} }
+  .avatar { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+  .av-0{background:#1a1f2e;color:#6b8cce} .av-1{background:#1f1a2e;color:#9b7fd4}
+  .av-2{background:#1a2a1f;color:#6bc47a} .av-3{background:#2a1f1a;color:#d4956b}
+  .av-4{background:#2a1a1f;color:#d46b8c} .av-5{background:#1a2a2a;color:#6bc4c4}
+  .av-6{background:#2a2a1a;color:#c4c46b} .av-7{background:#241a2a;color:#b46bc4}
+  .person-name { font-size: 14px; font-weight: 600; color: #e0ddd8; }
+  .person-sub { font-size: 11px; color: #3a3a3a; }
+  .select-ring { position: absolute; top: 10px; right: 10px; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #2a2a2a; transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
+  .person-card.selected .select-ring { background: #c8b8a2; border-color: #c8b8a2; }
+  .select-ring::after { content:''; width:5px; height:5px; border-radius:50%; background:#111; opacity:0; }
+  .person-card.selected .select-ring::after { opacity: 1; }
+  .reload-row { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 2px 0 6px; }
+  .reload-btn { background: transparent; border: 1px solid #222; border-radius: 20px; padding: 7px 16px; font-size: 12px; color: #555; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 6px; font-family: inherit; font-weight: 500; }
+  .reload-btn:active { transform: scale(0.96); }
+  .reload-btn:disabled { opacity: 0.3; pointer-events: none; }
+  .reload-count { font-size: 11px; color: #333; }
+  .compliment-section { overflow: hidden; max-height: 0; opacity: 0; transition: all 0.28s ease; }
+  .compliment-section.visible { max-height: 600px; opacity: 1; }
+  .compliment-card { background: #161616; border: 1px solid #1e1e1e; border-radius: 14px; padding: 14px 38px 14px 14px; margin-bottom: 8px; cursor: pointer; transition: all 0.15s; position: relative; }
+  .compliment-card:active { transform: scale(0.98); }
+  .compliment-card.selected { border-color: #c8b8a2; background: #1a1814; }
+  .compliment-text { font-size: 13px; color: #c0bdb8; line-height: 1.55; }
+  .c-check { position: absolute; top: 12px; right: 12px; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #2a2a2a; transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
+  .compliment-card.selected .c-check { background: #c8b8a2; border-color: #c8b8a2; }
+  .c-check::after { content:''; width:5px; height:5px; border-radius:50%; background:#111; opacity:0; }
+  .compliment-card.selected .c-check::after { opacity: 1; }
+  .send-bar { padding: 12px 16px 16px; flex-shrink: 0; background: #111; border-top: 1px solid #1a1a1a; }
+  .btn { width: 100%; padding: 14px; border-radius: 14px; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; display: block; text-align: center; }
+  .btn-primary { background: #f0ede8; color: #111; }
+  .btn-primary:active { transform: scale(0.98); background: #e0ddd8; }
+  .btn-primary:disabled { opacity: 0.25; pointer-events: none; }
+  .btn-ghost { background: transparent; border: 1px solid #222; color: #555; font-size: 13px; margin-top: 10px; }
+  .btn-ghost:active { transform: scale(0.98); }
+  .sent-overlay { position: absolute; inset: 0; background: #111; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 5; cursor: pointer; }
+  .sent-overlay.show { opacity: 1; pointer-events: all; }
+  .sent-big { font-size: 24px; color: #c8b8a2; text-align: center; padding: 0 40px; line-height: 1.4; font-weight: 700; letter-spacing: -0.5px; }
+  .sent-sub { font-size: 13px; color: #444; }
+  .done-hint { margin-top: 24px; font-size: 11px; color: #2e2e2e; letter-spacing: 1px; text-transform: uppercase; font-weight: 500; }
+  .done-screen { position: absolute; inset: 0; background: #111; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 6; padding: 40px 32px; }
+  .done-screen.show { display: flex; }
+  .done-icon { font-size: 48px; margin-bottom: 24px; animation: pulse 2.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:0.6;transform:scale(1)} 50%{opacity:1;transform:scale(1.08)} }
+  .done-title { font-size: 28px; font-weight: 700; letter-spacing: -1px; color: #f0ede8; text-align: center; margin-bottom: 10px; }
+  .done-subtitle { font-size: 14px; color: #444; text-align: center; line-height: 1.6; margin-bottom: 36px; }
+  .done-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; margin-bottom: 24px; }
+  .done-stat { background: #161616; border: 1px solid #1e1e1e; border-radius: 14px; padding: 16px 12px; text-align: center; }
+  .done-stat-num { font-size: 26px; font-weight: 700; letter-spacing: -1px; color: #f0ede8; }
+  .done-stat-label { font-size: 10px; color: #3a3a3a; margin-top: 3px; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; }
+  .done-reset { font-size: 11px; color: #2a2a2a; font-weight: 500; letter-spacing: 1px; text-transform: uppercase; }
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0; }
+  .stat-card { background: #161616; border: 1px solid #1e1e1e; border-radius: 14px; padding: 14px 12px; text-align: center; }
+  .stat-num { font-size: 28px; color: #f0ede8; font-weight: 700; letter-spacing: -1px; }
+  .stat-label { font-size: 10px; color: #3a3a3a; margin-top: 2px; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; }
+  .inbox-card { background: #161616; border: 1px solid #1e1e1e; border-radius: 18px; padding: 18px; margin-bottom: 10px; position: relative; overflow: hidden; }
+  .inbox-card.new { border-color: #252520; }
+  .inbox-card.new::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:#c8b8a2; border-radius:3px 0 0 3px; }
+  .inbox-text { font-size: 15px; color: #d8d5d0; line-height: 1.55; margin-bottom: 10px; }
+  .inbox-card:not(.new) .inbox-text { color: #555; }
+  .inbox-meta { display: flex; align-items: center; justify-content: space-between; }
+  .inbox-anon { font-size: 11px; color: #333; font-weight: 500; }
+  .inbox-time { font-size: 11px; color: #2e2e2e; }
+  .new-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #c8b8a2; margin-right: 6px; vertical-align: middle; }
+  .lb-tabs { display: flex; gap: 6px; margin: 8px 0 4px; }
+  .lb-tab { padding: 6px 14px; border-radius: 20px; font-size: 11px; cursor: pointer; border: 1px solid #222; color: #555; transition: all 0.15s; font-family: inherit; background: transparent; font-weight: 600; }
+  .lb-tab.active { background: #1a1814; border-color: #2a2520; color: #c8b8a2; }
+  .lb-you-pin { background: #1a1814; border: 1px solid #2a2520; border-radius: 16px; padding: 12px 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 12px; }
+  .lb-you-rank { font-size: 22px; font-weight: 700; color: #c8b8a2; width: 32px; text-align: center; letter-spacing: -1px; }
+  .lb-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; margin-bottom: 8px; background: #161616; border: 1px solid #1e1e1e; }
+  .medal { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; }
+  .lb-rank-num { font-size: 13px; color: #3a3a3a; width: 22px; text-align: center; flex-shrink: 0; font-weight: 500; }
+  .lb-name { flex: 1; font-size: 14px; font-weight: 600; color: #d8d5d0; }
+  .lb-sub { font-size: 11px; color: #3a3a3a; margin-top: 2px; }
+  .lb-score { font-size: 18px; font-weight: 700; color: #555; letter-spacing: -0.5px; }
+  .lb-score.top { color: #c8b8a2; }
+  .stat-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 4px 0; }
+  .auth-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 40px 28px; }
+  .auth-title { font-size: 26px; font-weight: 700; letter-spacing: -1px; margin-bottom: 8px; }
+  .auth-sub { font-size: 14px; color: #444; margin-bottom: 28px; line-height: 1.5; }
+  .input-label { font-size: 11px; color: #444; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 6px; }
+  .input-wrap { margin-bottom: 14px; }
+  .input-field { width: 100%; background: #161616; border: 1px solid #222; border-radius: 12px; padding: 14px 16px; font-family: inherit; font-size: 15px; color: #f0ede8; outline: none; transition: border-color 0.15s; }
+  .input-field:focus { border-color: #3a3a3a; }
+  .input-field::placeholder { color: #333; }
+  .error-msg { font-size: 12px; color: #e87070; margin-bottom: 14px; min-height: 16px; line-height: 1.4; }
+  .auth-switch { font-size: 13px; color: #444; text-align: center; margin-top: 20px; cursor: pointer; }
+  .auth-switch span { color: #c8b8a2; text-decoration: underline; }
+  .loader { display: flex; align-items: center; justify-content: center; flex: 1; }
+  .spinner { width: 24px; height: 24px; border: 2px solid #222; border-top-color: #c8b8a2; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .toast { position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(16px); background: #f0ede8; color: #111; padding: 9px 18px; border-radius: 20px; font-size: 13px; font-weight: 600; white-space: nowrap; opacity: 0; pointer-events: none; transition: all 0.28s ease; z-index: 200; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .empty { text-align: center; padding: 48px 24px; color: #2e2e2e; font-size: 13px; line-height: 1.8; }
+</style>
+</head>
+<body>
+<div class="phone" id="app">
+  <div class="loader"><div class="spinner"></div></div>
+</div>
+<script>
+const SUPABASE_URL = 'https://fdxsgzakruyzfagttwas.supabase.co'
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZkeHNnemFrcnV5emZhZ3R0d2FzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2ODUzMjcsImV4cCI6MjA4OTI2MTMyN30.DrPCiMdVb5SrEDrgmZnhyKPKZRRyjcIXJe16dafpmM4'
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+
+const COMPLIMENTS = [
+  "your energy literally makes every room better.",
+  "you say what everyone's thinking but won't say. that takes guts.",
+  "you remember the small stuff. that means more than you know.",
+  "watching you work hard makes me want to work harder.",
+  "you're genuinely one of the most real people here.",
+  "the way you carry yourself — quiet confidence. love it.",
+  "you make hard things look easy. it's lowkey inspiring.",
+  "you always show up. that's rarer than people think.",
+  "you make people feel seen without even trying.",
+  "there's something about your honesty that just hits different.",
+  "you bring out the best in people around you.",
+  "you never make anyone feel small. that's rare.",
+]
+
+let state = {
+  user:null, profile:null, pool:[],
+  selectedPerson:null, selectedCompliment:null,
+  reloadsLeft:2, complimentsLeft:5, sentToday:0,
+  inbox:[], leaderboard:{received:[],sent:[],streak:[]}, lbTab:'received',
+}
+
+const app = () => document.getElementById('app')
+function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function initials(name){return name.trim().split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)}
+function avClass(id){return 'av-'+(parseInt((id||'0').replace(/-/g,'').slice(0,4),16)%8)}
+function timeAgo(ts){const s=Math.floor((Date.now()-new Date(ts))/1000);if(s<60)return 'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}
+function showToast(msg){let t=document.getElementById('toast');if(!t){t=document.createElement('div');t.id='toast';t.className='toast';app().appendChild(t);}t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+function dots(){let h='';for(let i=0;i<5;i++)h+=`<span class="dot${i>=state.complimentsLeft?' used':''}"></span>`;return h;}
+
+async function init(){
+  const {data:{session}}=await sb.auth.getSession()
+  if(!session){renderAuth('login');return;}
+  state.user=session.user
+  await loadProfile()
+}
+
+async function loadProfile(){
+  const {data,error}=await sb.from('profiles').select('*').eq('id',state.user.id).maybeSingle()
+  if(!data){
+    // only new users who just signed up need to set a name
+    // if logging in and no profile exists, show name screen
+    renderSetupName();return;
+  }
+  state.profile=data
+  if(!data.group_id){renderJoinGroup();return;}
+  await Promise.all([loadDailyRemaining(),loadInbox()])
+  renderMain('send')
+}
+
+async function loadDailyRemaining(){
+  const {data}=await sb.rpc('get_daily_remaining')
+  state.complimentsLeft=Math.max(0,data??5)
+  state.sentToday=5-state.complimentsLeft
+}
+
+async function loadInbox(){
+  const {data}=await sb.from('compliments').select('id,body,created_at,seen').eq('recipient_id',state.user.id).order('created_at',{ascending:false}).limit(50)
+  state.inbox=data||[]
+}
+
+async function loadPool(){
+  const {data}=await sb.rpc('get_random_pool')
+  state.pool=data||[]
+}
+
+async function loadLeaderboard(){
+  const gid=state.profile.group_id
+  const {data:rec}=await sb.from('compliments').select('recipient_id,profiles!compliments_recipient_id_fkey(display_name)').eq('group_id',gid)
+  const {data:sent}=await sb.from('compliments').select('sender_id,profiles!compliments_sender_id_fkey(display_name)').eq('group_id',gid)
+  const {data:streaks}=await sb.from('profiles').select('id,display_name,streak').eq('group_id',gid).order('streak',{ascending:false}).limit(10)
+  const recMap={};(rec||[]).forEach(r=>{const id=r.recipient_id;if(!recMap[id])recMap[id]={id,name:r.profiles?.display_name||'?',count:0};recMap[id].count++;})
+  state.leaderboard.received=Object.values(recMap).sort((a,b)=>b.count-a.count).slice(0,10)
+  const sentMap={};(sent||[]).forEach(r=>{const id=r.sender_id;if(!sentMap[id])sentMap[id]={id,name:r.profiles?.display_name||'?',count:0};sentMap[id].count++;})
+  state.leaderboard.sent=Object.values(sentMap).sort((a,b)=>b.count-a.count).slice(0,10)
+  state.leaderboard.streak=(streaks||[]).map(p=>({id:p.id,name:p.display_name,count:p.streak||0}))
+}
+
+// AUTH
+function renderAuth(mode,error=''){
+  const isLogin=mode==='login'
+  app().innerHTML=`
+    <div class="auth-wrap">
+      <div class="wordmark" style="margin-bottom:36px;">street</div>
+      <div class="auth-title">${isLogin?'welcome back.':'create account.'}</div>
+      <div class="auth-sub">${isLogin?'sign in to see what people think of you.':'join your school and start complimenting.'}</div>
+      <div class="input-wrap"><div class="input-label">email</div><input class="input-field" id="ei" type="email" placeholder="you@example.com" autocomplete="email"/></div>
+      <div class="input-wrap"><div class="input-label">password</div><input class="input-field" id="pi" type="password" placeholder="••••••••" autocomplete="${isLogin?'current-password':'new-password'}"/></div>
+      <div class="error-msg" id="ae">${error}</div>
+      <button class="btn btn-primary" id="ab" onclick="${isLogin?'submitLogin()':'submitSignup()'}"> ${isLogin?'sign in':'create account'}</button>
+      <div class="auth-switch">${isLogin?`no account? <span onclick="renderAuth('signup')">sign up</span>`:`already have one? <span onclick="renderAuth('login')">sign in</span>`}</div>
+    </div>`
+  setTimeout(()=>document.getElementById('ei')?.focus(),100)
+  ;['ei','pi'].forEach(id=>document.getElementById(id)?.addEventListener('keydown',e=>{if(e.key==='Enter')isLogin?submitLogin():submitSignup()}))
+}
+
+async function submitLogin(){
+  const email=document.getElementById('ei').value.trim(),pw=document.getElementById('pi').value
+  if(!email||!pw)return
+  const btn=document.getElementById('ab');btn.disabled=true;btn.textContent='signing in...'
+  const {data,error}=await sb.auth.signInWithPassword({email,password:pw})
+  if(error){renderAuth('login',error.message);return;}
+  state.user=data.user;await loadProfile()
+}
+
+async function submitSignup(){
+  const email=document.getElementById('ei').value.trim(),pw=document.getElementById('pi').value
+  if(!email||!pw)return
+  if(pw.length<6){document.getElementById('ae').textContent='password must be at least 6 characters';return;}
+  const btn=document.getElementById('ab');btn.disabled=true;btn.textContent='creating account...'
+  const {data,error}=await sb.auth.signUp({email,password:pw})
+  if(error){renderAuth('signup',error.message);return;}
+  state.user=data.user
+  if(!data.session){
+    app().innerHTML=`<div class="auth-wrap"><div class="wordmark" style="margin-bottom:36px;">street</div><div class="auth-title">check your email.</div><div class="auth-sub">we sent a confirmation link to <strong>${email}</strong>. click it then come back to sign in.</div><button class="btn btn-primary" style="margin-top:16px;" onclick="renderAuth('login')">go to sign in</button></div>`
+    return
+  }
+  await loadProfile()
+}
+
+// SETUP
+function renderSetupName(error=''){
+  app().innerHTML=`
+    <div class="auth-wrap">
+      <div class="wordmark" style="margin-bottom:36px;">street</div>
+      <div class="auth-title">what's your name?</div>
+      <div class="auth-sub">this is what others see when you show up in their pool.</div>
+      <div class="input-wrap"><div class="input-label">display name</div><input class="input-field" id="ni" type="text" placeholder="Arjun M." maxlength="30"/></div>
+      <div class="error-msg">${error}</div>
+      <button class="btn btn-primary" id="nb" onclick="submitName()">continue</button>
+    </div>`
+  setTimeout(()=>document.getElementById('ni')?.focus(),100)
+  document.getElementById('ni')?.addEventListener('keydown',e=>{if(e.key==='Enter')submitName()})
+}
+
+async function submitName(){
+  const name=document.getElementById('ni').value.trim();if(!name)return
+  const btn=document.getElementById('nb');btn.disabled=true;btn.textContent='saving...'
+  const {error}=await sb.from('profiles').upsert({id:state.user.id,display_name:name},{onConflict:'id'})
+  if(error){renderSetupName(error.message);return;}
+  const {data}=await sb.from('profiles').select('*').eq('id',state.user.id).single()
+  state.profile=data;renderJoinGroup()
+}
+
+// JOIN / CREATE GROUP
+function renderJoinGroup(error=''){
+  app().innerHTML=`
+    <div class="auth-wrap">
+      <div class="wordmark" style="margin-bottom:36px;">street</div>
+      <div class="auth-title">join a group.</div>
+      <div class="auth-sub">enter a 4-letter invite code from a friend, or create a new group.</div>
+      <div class="input-wrap"><div class="input-label">invite code</div><input class="input-field" id="ci" type="text" placeholder="FRVR" maxlength="4" style="text-transform:uppercase;letter-spacing:6px;font-size:22px;font-weight:700;text-align:center;"/></div>
+      <div class="error-msg" id="je">${error}</div>
+      <button class="btn btn-primary" id="jb" onclick="joinGroup()">join group</button>
+      <button class="btn btn-ghost" onclick="showCreateGroup()">create new group</button>
+    </div>`
+  const inp=document.getElementById('ci')
+  inp?.addEventListener('input',e=>e.target.value=e.target.value.toUpperCase())
+  inp?.addEventListener('keydown',e=>{if(e.key==='Enter')joinGroup()})
+  setTimeout(()=>inp?.focus(),100)
+}
+
+function showCreateGroup(){
+  app().innerHTML=`
+    <div class="auth-wrap">
+      <div class="wordmark" style="margin-bottom:36px;">street</div>
+      <div class="auth-title">name your group.</div>
+      <div class="auth-sub">others will see this when they join with your invite code.</div>
+      <div class="input-wrap"><div class="input-label">group name</div><input class="input-field" id="gi" type="text" placeholder="Fergusson College 2025" maxlength="50"/></div>
+      <div class="error-msg" id="ge"></div>
+      <button class="btn btn-primary" id="gb" onclick="createGroup()">create group</button>
+      <button class="btn btn-ghost" onclick="renderJoinGroup()">back</button>
+    </div>`
+  setTimeout(()=>document.getElementById('gi')?.focus(),100)
+  document.getElementById('gi')?.addEventListener('keydown',e=>{if(e.key==='Enter')createGroup()})
+}
+
+async function joinGroup(){
+  const code=document.getElementById('ci').value.trim().toUpperCase();if(code.length<4)return
+  const btn=document.getElementById('jb');btn.disabled=true;btn.textContent='joining...'
+  const {data:group}=await sb.from('groups').select('id,name').eq('invite_code',code).single()
+  if(!group){renderJoinGroup('invalid code — check with your friend');return;}
+  await sb.from('profiles').update({group_id:group.id}).eq('id',state.user.id)
+  if(state.profile) state.profile.group_id=group.id; else state.profile={group_id:group.id}
+  await Promise.all([loadDailyRemaining(),loadInbox()])
+  showToast('joined '+group.name)
+  renderMain('send')
+}
+
+async function createGroup(){
+  const name=document.getElementById('gi').value.trim();if(!name)return
+  const btn=document.getElementById('gb');btn.disabled=true;btn.textContent='creating...'
+  const {data:group,error}=await sb.from('groups').insert({name}).select().single()
+  if(error){document.getElementById('ge').textContent=error.message;btn.disabled=false;btn.textContent='create group';return;}
+  await sb.from('profiles').update({group_id:group.id}).eq('id',state.user.id)
+  if(state.profile) state.profile.group_id=group.id; else state.profile={group_id:group.id}
+  await Promise.all([loadDailyRemaining(),loadInbox()])
+  showToast('group created — code: '+group.invite_code)
+  renderMain('send')
+}
+
+// MAIN SHELL
+function renderMain(tab){
+  app().innerHTML=`
+    <div id="screen-send" class="screen${tab==='send'?' active':''}">
+      <div class="header-row"><div class="wordmark">street</div><div class="pill-count" id="pill">${dots()}<span id="count-label" style="margin-left:2px;">${state.complimentsLeft} left</span></div></div>
+      <div class="scroll">
+        <div class="section-label">who would you compliment?</div>
+        <div class="people-grid" id="people-grid"><div class="loader" style="grid-column:1/-1;padding:24px 0;"><div class="spinner"></div></div></div>
+        <div class="reload-row">
+          <button class="reload-btn" id="reload-btn" onclick="shufflePeople()"><span style="font-size:14px;">↻</span> different people</button>
+          <span class="reload-count" id="reload-count">${state.reloadsLeft} shuffles left</span>
+        </div>
+        <div class="compliment-section" id="compliment-section">
+          <div class="section-label">pick a compliment</div>
+          <div id="compliment-list"></div>
+        </div>
+      </div>
+      <div class="send-bar"><button class="btn btn-primary" id="send-btn" disabled onclick="sendIt()">send anonymously</button></div>
+      <div class="sent-overlay" id="sent-overlay" onclick="onSentTap()">
+        <div style="font-size:32px;">✦</div>
+        <div class="sent-big" id="sent-msg">sent.</div>
+        <div class="sent-sub">they'll never know it was you</div>
+        <div class="done-hint">tap for next round</div>
+      </div>
+      <div class="done-screen" id="done-screen">
+        <div class="done-icon">✦</div>
+        <div class="done-title">you're done<br>for today.</div>
+        <div class="done-subtitle" id="done-sub">come back tomorrow for more.</div>
+        <div class="done-stats">
+          <div class="done-stat"><div class="done-stat-num" id="done-sent">${state.sentToday}</div><div class="done-stat-label">sent today</div></div>
+          <div class="done-stat"><div class="done-stat-num">${state.inbox.length}</div><div class="done-stat-label">total received</div></div>
+          <div class="done-stat"><div class="done-stat-num">${state.profile?.streak||0}</div><div class="done-stat-label">streak</div></div>
+          <div class="done-stat"><div class="done-stat-num">—</div><div class="done-stat-label">rank</div></div>
+        </div>
+        <div class="done-reset">resets at midnight</div>
+      </div>
+    </div>
+    <div id="screen-inbox" class="screen${tab==='inbox'?' active':''}">
+      <div class="header-row"><div class="wordmark">street</div><div style="font-size:10px;color:#333;letter-spacing:1.5px;text-transform:uppercase;font-weight:500;">inbox</div></div>
+      <div class="scroll" id="inbox-scroll"></div>
+    </div>
+    <div id="screen-lb" class="screen${tab==='lb'?' active':''}">
+      <div class="header-row"><div class="wordmark">street</div><div style="font-size:10px;color:#333;letter-spacing:1.5px;text-transform:uppercase;font-weight:500;">board</div></div>
+      <div class="scroll" id="lb-scroll"><div class="loader" style="padding:48px 0;"><div class="spinner"></div></div></div>
+    </div>
+    <div id="screen-profile" class="screen${tab==='profile'?' active':''}">
+      <div class="header-row"><div class="wordmark">street</div><div style="font-size:10px;color:#333;letter-spacing:1.5px;text-transform:uppercase;font-weight:500;">you</div></div>
+      <div class="scroll" id="profile-scroll"></div>
+    </div>
+    <div class="nav-bar">
+      <div class="nav-item${tab==='send'?' active':''}" id="nav-send" onclick="switchTab('send')"><span class="nav-icon">✦</span><span class="nav-label">send</span></div>
+      <div class="nav-item${tab==='inbox'?' active':''}" id="nav-inbox" onclick="switchTab('inbox')"><span class="nav-icon">◈</span><span class="nav-label">inbox</span></div>
+      <div class="nav-item${tab==='lb'?' active':''}" id="nav-lb" onclick="switchTab('lb')"><span class="nav-icon">◉</span><span class="nav-label">board</span></div>
+      <div class="nav-item${tab==='profile'?' active':''}" id="nav-profile" onclick="switchTab('profile')"><span class="nav-icon">○</span><span class="nav-label">you</span></div>
+    </div>
+    <div class="toast" id="toast"></div>`
+
+  if(state.complimentsLeft<=0){document.getElementById('done-screen').classList.add('show')}
+  else{loadPool().then(()=>renderPool(false))}
+  renderInbox();renderProfile()
+  if(tab==='lb')loadLeaderboard().then(renderLeaderboard)
+}
+
+// SEND
+function renderPool(animate){
+  const grid=document.getElementById('people-grid');if(!grid)return
+  if(!state.pool.length){grid.innerHTML=`<div class="empty" style="grid-column:1/-1;">no one else in your group yet.<br>share your invite code to add people.</div>`;return;}
+  grid.innerHTML=''
+  state.pool.forEach((p,i)=>{
+    const card=document.createElement('div')
+    card.className='person-card'+(animate?' shuffling':'')
+    card.style.animationDelay=(i*0.06)+'s'
+    card.innerHTML=`<div class="avatar ${avClass(p.id)}">${initials(p.display_name)}</div><div><div class="person-name">${p.display_name}</div><div class="person-sub">classmate</div></div><div class="select-ring"></div>`
+    card.addEventListener('click',()=>selectPerson(card,p))
+    grid.appendChild(card)
+  })
+}
+
+function selectPerson(card,person){
+  document.querySelectorAll('.person-card').forEach(c=>c.classList.remove('selected','dimmed'))
+  card.classList.add('selected')
+  document.querySelectorAll('.person-card').forEach(c=>{if(!c.classList.contains('selected'))c.classList.add('dimmed')})
+  state.selectedPerson=person;state.selectedCompliment=null
+  document.querySelectorAll('.compliment-card').forEach(c=>c.classList.remove('selected'))
+  document.getElementById('compliment-section').classList.add('visible')
+  renderComplimentOptions();checkReady()
+  setTimeout(()=>document.getElementById('compliment-section')?.scrollIntoView({behavior:'smooth',block:'nearest'}),320)
+}
+
+function renderComplimentOptions(){
+  const list=document.getElementById('compliment-list');if(!list)return
+  list.innerHTML=''
+  shuffle(COMPLIMENTS).slice(0,4).forEach(text=>{
+    const card=document.createElement('div')
+    card.className='compliment-card'
+    card.innerHTML=`<p class="compliment-text">${text}</p><div class="c-check"></div>`
+    card.addEventListener('click',()=>{document.querySelectorAll('.compliment-card').forEach(c=>c.classList.remove('selected'));card.classList.add('selected');state.selectedCompliment=text;checkReady()})
+    list.appendChild(card)
+  })
+}
+
+function checkReady(){const btn=document.getElementById('send-btn');if(btn)btn.disabled=!(state.selectedPerson&&state.selectedCompliment)}
+
+async function shufflePeople(){
+  if(state.reloadsLeft<=0)return
+  state.reloadsLeft--;state.selectedPerson=null;state.selectedCompliment=null
+  document.getElementById('compliment-section')?.classList.remove('visible');checkReady()
+  const rc=document.getElementById('reload-count');if(rc)rc.textContent=state.reloadsLeft===0?'no shuffles left':state.reloadsLeft+' shuffle'+(state.reloadsLeft===1?'':'s')+' left'
+  if(state.reloadsLeft===0)document.getElementById('reload-btn').disabled=true
+  await loadPool();renderPool(true)
+}
+
+async function sendIt(){
+  if(!state.selectedPerson||!state.selectedCompliment||state.complimentsLeft<=0)return
+  const btn=document.getElementById('send-btn');btn.disabled=true;btn.textContent='sending...'
+  const {error}=await sb.rpc('send_compliment',{p_recipient_id:state.selectedPerson.id,p_body:state.selectedCompliment})
+  if(error){btn.disabled=false;btn.textContent='send anonymously';showToast(error.message);return;}
+  state.complimentsLeft--;state.sentToday++;updatePill()
+  const overlay=document.getElementById('sent-overlay')
+  const msgEl=document.getElementById('sent-msg');if(msgEl)msgEl.textContent='sent to '+state.selectedPerson.display_name.split(' ')[0]+'.'
+  overlay?.classList.add('show')
+  if(state.complimentsLeft<=0){
+    setTimeout(()=>{
+      overlay?.classList.remove('show')
+      const done=document.getElementById('done-screen')
+      if(done){document.getElementById('done-sub').textContent=`all ${state.sentToday} sent. come back tomorrow.`;document.getElementById('done-sent').textContent=state.sentToday;done.classList.add('show')}
+    },1200)
+  }
+}
+
+function onSentTap(){
+  if(state.complimentsLeft<=0)return
+  document.getElementById('sent-overlay')?.classList.remove('show')
+  state.selectedPerson=null;state.selectedCompliment=null;state.reloadsLeft=2
+  const rb=document.getElementById('reload-btn');if(rb)rb.disabled=false
+  const rc=document.getElementById('reload-count');if(rc)rc.textContent='2 shuffles left'
+  document.getElementById('compliment-section')?.classList.remove('visible');checkReady()
+  loadPool().then(()=>renderPool(true))
+}
+
+function updatePill(){
+  const pill=document.getElementById('pill')
+  if(pill)pill.innerHTML=dots()+`<span id="count-label" style="margin-left:2px;">${state.complimentsLeft} left</span>`
+}
+
+// INBOX
+function renderInbox(){
+  const el=document.getElementById('inbox-scroll');if(!el)return
+  const newItems=state.inbox.filter(c=>!c.seen),oldItems=state.inbox.filter(c=>c.seen)
+  let h=`<div class="stat-row"><div class="stat-card"><div class="stat-num">${state.inbox.length}</div><div class="stat-label">received</div></div><div class="stat-card"><div class="stat-num">${state.profile?.streak||0}</div><div class="stat-label">streak</div></div></div>`
+  if(newItems.length){h+=`<div class="section-label">new</div>`;newItems.forEach(c=>{h+=inboxCard(c,true)})}
+  if(oldItems.length){h+=`<div class="section-label">earlier</div>`;oldItems.forEach(c=>{h+=inboxCard(c,false)})}
+  if(!state.inbox.length)h+=`<div class="empty">no compliments yet.<br>check back soon.</div>`
+  el.innerHTML=h
+  const unseenIds=newItems.map(c=>c.id)
+  if(unseenIds.length)sb.from('compliments').update({seen:true}).in('id',unseenIds).then(()=>{state.inbox=state.inbox.map(c=>({...c,seen:true}))})
+}
+
+function inboxCard(c,isNew){return `<div class="inbox-card${isNew?' new':''}"><div class="inbox-text">"${c.body}"</div><div class="inbox-meta"><span class="inbox-anon">${isNew?'<span class="new-dot"></span>':''}someone from your school</span><span class="inbox-time">${timeAgo(c.created_at)}</span></div></div>`}
+
+// LEADERBOARD
+function renderLeaderboard(){
+  const el=document.getElementById('lb-scroll');if(!el)return
+  const data=state.leaderboard[state.lbTab],uid=state.user.id
+  const myIdx=data.findIndex(p=>p.id===uid),myRank=myIdx===-1?'—':'#'+(myIdx+1),myScore=myIdx===-1?0:data[myIdx].count
+  const label=state.lbTab==='received'?'received':state.lbTab==='sent'?'sent':'day streak'
+  const MEDALS=['🥇','🥈','🥉']
+  let rows=''
+  data.forEach((p,i)=>{
+    const isTop=i<3,isMe=p.id===uid
+    rows+=`<div class="lb-row" style="${isMe?'border-color:#252520;background:#1a1814;':''}"><div class="${isTop?'medal':'lb-rank-num'}">${isTop?MEDALS[i]:'#'+(i+1)}</div><div class="avatar ${avClass(p.id)}" style="width:36px;height:36px;font-size:12px;flex-shrink:0;">${initials(p.name)}</div><div style="flex:1;"><div class="lb-name">${p.name}${isMe?' <span style="font-size:10px;color:#c8b8a2;margin-left:4px;">you</span>':''}</div><div class="lb-sub">${p.count} ${label}</div></div><div class="lb-score${isTop?' top':''}">${p.count}</div></div>`
+  })
+  if(!data.length)rows=`<div class="empty">not enough data yet.<br>more people need to join first.</div>`
+  el.innerHTML=`
+    <div class="lb-tabs">
+      <button class="lb-tab${state.lbTab==='received'?' active':''}" onclick="switchLbTab('received',this)">most loved</button>
+      <button class="lb-tab${state.lbTab==='sent'?' active':''}" onclick="switchLbTab('sent',this)">most generous</button>
+      <button class="lb-tab${state.lbTab==='streak'?' active':''}" onclick="switchLbTab('streak',this)">streaks</button>
+    </div>
+    <div class="lb-you-pin">
+      <div class="lb-you-rank">${myRank}</div>
+      <div class="avatar ${avClass(uid)}" style="width:36px;height:36px;font-size:12px;flex-shrink:0;">${initials(state.profile.display_name)}</div>
+      <div style="flex:1;"><div style="font-size:14px;font-weight:600;color:#f0ede8;">${state.profile.display_name}</div><div style="font-size:11px;color:#444;margin-top:2px;">${myScore} ${label}</div></div>
+    </div>
+    <div class="section-label">top of your school</div>${rows}`
+}
+
+function switchLbTab(tab,btn){state.lbTab=tab;document.querySelectorAll('.lb-tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');renderLeaderboard()}
+
+// PROFILE
+async function renderProfile(){
+  const el=document.getElementById('profile-scroll');if(!el)return
+  let inviteCode='—',groupName='your school'
+  if(state.profile?.group_id){const {data:grp}=await sb.from('groups').select('invite_code,name').eq('id',state.profile.group_id).single();if(grp){inviteCode=grp.invite_code;groupName=grp.name}}
+  const av=avClass(state.user.id),init=initials(state.profile.display_name)
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;padding:0 8px;">
+      <div class="avatar ${av}" style="width:64px;height:64px;font-size:20px;font-weight:700;">${init}</div>
+      <div><div style="font-size:18px;font-weight:700;letter-spacing:-0.5px;">${state.profile.display_name}</div><div style="font-size:12px;color:#3a3a3a;margin-top:3px;">${groupName}</div></div>
+    </div>
+    <div class="stat-row-3">
+      <div class="stat-card"><div class="stat-num">${state.inbox.length}</div><div class="stat-label">received</div></div>
+      <div class="stat-card"><div class="stat-num">${state.sentToday}</div><div class="stat-label">sent today</div></div>
+      <div class="stat-card"><div class="stat-num">${state.profile.streak||0}</div><div class="stat-label">streak</div></div>
+    </div>
+    <div class="section-label">invite code</div>
+    <div style="background:#161616;border:1px solid #1e1e1e;border-radius:16px;padding:20px;text-align:center;cursor:pointer;" onclick="copyCode('${inviteCode}')">
+      <div style="font-size:32px;letter-spacing:10px;color:#f0ede8;margin-bottom:6px;font-weight:700;">${inviteCode}</div>
+      <div style="font-size:11px;color:#333;">tap to copy · share with friends</div>
+    </div>
+    <button class="btn btn-ghost" style="margin-top:16px;" onclick="signOut()">sign out</button>`
+}
+
+function copyCode(code){navigator.clipboard?.writeText(code).then(()=>showToast('copied '+code))}
+
+async function signOut(){
+  await sb.auth.signOut()
+  state={user:null,profile:null,pool:[],selectedPerson:null,selectedCompliment:null,reloadsLeft:2,complimentsLeft:5,sentToday:0,inbox:[],leaderboard:{received:[],sent:[],streak:[]},lbTab:'received'}
+  renderAuth('login')
+}
+
+function switchTab(tab){
+  ['send','inbox','lb','profile'].forEach(t=>{document.getElementById('screen-'+t)?.classList.toggle('active',t===tab);document.getElementById('nav-'+t)?.classList.toggle('active',t===tab)})
+  if(tab==='lb')loadLeaderboard().then(renderLeaderboard)
+  if(tab==='inbox')loadInbox().then(renderInbox)
+  if(tab==='profile')renderProfile()
+}
+
+init()
+</script>
+</body>
+</html>
